@@ -8,7 +8,6 @@ from tkinter import messagebox
 from tkinter.scrolledtext import ScrolledText
 import customtkinter as ctk
 from PIL import Image, ImageTk
-import time
 from tkcalendar import DateEntry
 
 # Set appearance mode and default theme
@@ -734,10 +733,11 @@ class ModernTodoApp(ctk.CTk):
     
     def on_task_delete(self, task_id):
         # Confirm deletion
-        result = ctk.CTkInputDialog(
+        dialog = ctk.CTkInputDialog(
             text="Type 'delete' to confirm task deletion:",
             title="Confirm Delete"
-        ).get_input()
+        )
+        result = dialog.get_input()
         
         if result and result.lower() == "delete":
             # Animate deletion
@@ -755,7 +755,10 @@ class ModernTodoApp(ctk.CTk):
         self.show_edit_task_dialog(task_id)
     
     def show_add_task_dialog(self):
-        dialog = TaskDialog(self, "Add New Task")
+        # Fixed Dialog Window
+        dialog = FixedTaskDialog(self, "Add New Task")
+        
+        # Check if the dialog was completed successfully
         if dialog.result:
             title, description, due_date, priority, category = dialog.result
             
@@ -781,9 +784,11 @@ class ModernTodoApp(ctk.CTk):
     def show_edit_task_dialog(self, task_id=None):
         if task_id is None:
             if self.selected_task_id is None:
-                ctk.CTkMessagebox(
+                # Show error message
+                dialog = ctk.CTkMessagebox(
                     title="No Selection",
-                    message="Please select a task to edit."
+                    message="Please select a task to edit.",
+                    icon="cancel"
                 )
                 return
             task_id = self.selected_task_id
@@ -808,7 +813,8 @@ class ModernTodoApp(ctk.CTk):
         elif priority == 4:
             priority_name = "Critical"
         
-        dialog = TaskDialog(
+        # Fixed Dialog Window
+        dialog = FixedTaskDialog(
             self, 
             "Edit Task",
             title=title,
@@ -858,293 +864,372 @@ class ModernTodoApp(ctk.CTk):
     def change_appearance_mode(self, new_appearance_mode):
         ctk.set_appearance_mode(new_appearance_mode)
 
-# Modern Task Dialog
-class TaskDialog(ctk.CTkToplevel):
-    def __init__(self, parent, title_text, title="", description="", due_date=None, priority="Medium", category="Personal"):
+
+# FIXED Task Dialog with proper sizing and button functionality
+class FixedTaskDialog(ctk.CTkToplevel):
+    def __init__(self, parent, dialog_title, title="", description="", due_date=None, priority="Medium", category="Personal"):
         super().__init__(parent)
-        self.title(title_text)
+        
+        # Set window title and properties
+        self.title(dialog_title)
         self.geometry("600x500")
-        self.resizable(False, False)
+        self.minsize(500, 450)  # Minimum size to ensure all elements are visible
+        self.resizable(True, True)  # Allow resizing
+        
+        # Make sure dialog appears on top and grabs focus
+        self.transient(parent)
         self.grab_set()
         
-        # Store initial values
+        # Center the dialog on the parent window
+        self.center_on_parent(parent)
+        
+        # Initialize result
         self.result = None
+        
+        # Store input values
         self.initial_title = title
         self.initial_description = description
         self.initial_due_date = due_date
         self.initial_priority = priority
         self.initial_category = category
         
-        # Get task manager for categories
+        # Get task manager reference
         self.task_manager = parent.task_manager
         
-        # Set up UI
+        # Build the UI
         self.setup_ui()
         
-        # Wait for window to be destroyed
+        # Wait for window to close before returning
         self.wait_window()
     
+    def center_on_parent(self, parent):
+        # Center the dialog on the parent window
+        parent_x = parent.winfo_x()
+        parent_y = parent.winfo_y()
+        parent_width = parent.winfo_width()
+        parent_height = parent.winfo_height()
+        
+        width = 600
+        height = 500
+        
+        x = parent_x + (parent_width - width) // 2
+        y = parent_y + (parent_height - height) // 2
+        
+        self.geometry(f"{width}x{height}+{x}+{y}")
+    
     def setup_ui(self):
-        main_frame = ctk.CTkFrame(self, corner_radius=0)
-        main_frame.pack(fill="both", expand=True)
+        # Main content frame
+        self.main_frame = ctk.CTkFrame(self)
+        self.main_frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
         
-        # Create a title bar for the dialog
-        title_bar = ctk.CTkFrame(main_frame, fg_color=("#dcddde", "#2b2b2b"), height=60)
-        title_bar.pack(fill="x", padx=0, pady=0)
+        # Title bar
+        self.title_bar = ctk.CTkFrame(self.main_frame, corner_radius=0, fg_color=("#dcddde", "#2b2b2b"), height=50)
+        self.title_bar.pack(fill=tk.X, pady=0)
         
-        # Dialog title
-        ctk.CTkLabel(
-            title_bar, 
+        # Title label
+        self.title_label = ctk.CTkLabel(
+            self.title_bar,
             text=self.title(),
-            font=ctk.CTkFont(size=20, weight="bold")
-        ).pack(side="left", padx=20, pady=15)
+            font=ctk.CTkFont(size=18, weight="bold")
+        )
+        self.title_label.pack(side=tk.LEFT, padx=20, pady=10)
         
         # Content area
-        content = ctk.CTkFrame(main_frame)
-        content.pack(fill="both", expand=True, padx=20, pady=20)
+        self.content_frame = ctk.CTkFrame(self.main_frame)
+        self.content_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
         
-        # Task fields
-        # Title
-        ctk.CTkLabel(
-            content, 
+        # Task Title
+        self.title_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
+        self.title_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        self.title_label = ctk.CTkLabel(
+            self.title_frame,
             text="Title:",
-            font=ctk.CTkFont(size=16, weight="bold")
-        ).pack(anchor="w", pady=(0, 5))
+            font=ctk.CTkFont(size=14, weight="bold"),
+            width=80,
+            anchor="w"
+        )
+        self.title_label.pack(side=tk.LEFT)
         
         self.title_entry = ctk.CTkEntry(
-            content,
-            placeholder_text="Enter task title",
-            height=40,
-            font=ctk.CTkFont(size=14)
+            self.title_frame,
+            placeholder_text="Task title",
+            height=35,
+            font=ctk.CTkFont(size=13)
         )
-        self.title_entry.pack(fill="x", pady=(0, 15))
+        self.title_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(10, 0))
+        
+        # Pre-fill title if editing
         if self.initial_title:
             self.title_entry.insert(0, self.initial_title)
         
         # Description
-        ctk.CTkLabel(
-            content, 
+        self.desc_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
+        self.desc_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        self.desc_label = ctk.CTkLabel(
+            self.desc_frame,
             text="Description:",
-            font=ctk.CTkFont(size=16, weight="bold")
-        ).pack(anchor="w", pady=(0, 5))
+            font=ctk.CTkFont(size=14, weight="bold"),
+            anchor="w"
+        )
+        self.desc_label.pack(anchor=tk.W)
         
-        self.description_text = ctk.CTkTextbox(
-            content,
+        self.desc_text = ctk.CTkTextbox(
+            self.content_frame,
             height=100,
-            font=ctk.CTkFont(size=14)
+            font=ctk.CTkFont(size=13),
+            wrap="word"
         )
-        self.description_text.pack(fill="x", pady=(0, 15))
+        self.desc_text.pack(fill=tk.X, pady=(0, 15))
+        
+        # Pre-fill description if editing
         if self.initial_description:
-            self.description_text.insert("0.0", self.initial_description)
+            self.desc_text.insert("0.0", self.initial_description)
         
-        # Due Date
-        due_frame = ctk.CTkFrame(content)
-        due_frame.pack(fill="x", pady=(0, 15))
+        # Due Date frame
+        self.due_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
+        self.due_frame.pack(fill=tk.X, pady=(0, 5))
         
-        ctk.CTkLabel(
-            due_frame, 
+        # Due date label and checkbox
+        self.due_date_label = ctk.CTkLabel(
+            self.due_frame,
             text="Due Date:",
-            font=ctk.CTkFont(size=16, weight="bold")
-        ).pack(side="left", padx=(0, 10))
-        
-        self.due_date_checkbox_var = tk.BooleanVar(value=self.initial_due_date is not None)
-        self.use_due_date_checkbox = ctk.CTkCheckBox(
-            due_frame,
-            text="Set Due Date",
-            variable=self.due_date_checkbox_var,
-            command=self.toggle_due_date,
-            font=ctk.CTkFont(size=14)
+            font=ctk.CTkFont(size=14, weight="bold"),
+            width=80,
+            anchor="w"
         )
-        self.use_due_date_checkbox.pack(side="left")
+        self.due_date_label.pack(side=tk.LEFT)
         
-        # Date picker and time entry
-        date_time_frame = ctk.CTkFrame(content)
-        date_time_frame.pack(fill="x", pady=(0, 15))
+        self.due_date_var = tk.BooleanVar(value=self.initial_due_date is not None)
+        self.due_date_check = ctk.CTkCheckBox(
+            self.due_frame,
+            text="Set Due Date",
+            variable=self.due_date_var,
+            command=self.toggle_due_date
+        )
+        self.due_date_check.pack(side=tk.LEFT, padx=(10, 0))
         
+        # Date and time selector
+        self.date_time_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
+        self.date_time_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        # Date entry
         self.date_entry = DateEntry(
-            date_time_frame,
+            self.date_time_frame,
             width=12,
             background='darkblue',
             foreground='white',
             borderwidth=2,
             state="disabled" if not self.initial_due_date else "normal"
         )
-        self.date_entry.pack(side="left", padx=(0, 10))
+        self.date_entry.pack(side=tk.LEFT)
         
-        time_frame = ctk.CTkFrame(date_time_frame)
-        time_frame.pack(side="left")
+        # Time label
+        time_label = ctk.CTkLabel(
+            self.date_time_frame,
+            text="Time:",
+            font=ctk.CTkFont(size=13),
+            width=30
+        )
+        time_label.pack(side=tk.LEFT, padx=(20, 10))
         
+        # Hour entry
         self.hour_var = tk.StringVar(value="12")
-        self.minute_var = tk.StringVar(value="00")
-        
-        self.hour_spinbox = ctk.CTkEntry(
-            time_frame,
+        self.hour_entry = ctk.CTkEntry(
+            self.date_time_frame,
+            width=40,
             textvariable=self.hour_var,
-            width=40,
-            font=ctk.CTkFont(size=14),
             state="disabled" if not self.initial_due_date else "normal"
         )
-        self.hour_spinbox.pack(side="left")
+        self.hour_entry.pack(side=tk.LEFT)
         
-        ctk.CTkLabel(time_frame, text=":").pack(side="left", padx=2)
+        # Time separator
+        colon_label = ctk.CTkLabel(self.date_time_frame, text=":", width=5)
+        colon_label.pack(side=tk.LEFT)
         
-        self.minute_spinbox = ctk.CTkEntry(
-            time_frame,
+        # Minute entry
+        self.minute_var = tk.StringVar(value="00")
+        self.minute_entry = ctk.CTkEntry(
+            self.date_time_frame,
+            width=40,
             textvariable=self.minute_var,
-            width=40,
-            font=ctk.CTkFont(size=14),
             state="disabled" if not self.initial_due_date else "normal"
         )
-        self.minute_spinbox.pack(side="left")
+        self.minute_entry.pack(side=tk.LEFT)
         
-        # Set default values for date and time
+        # Set initial time values if editing
         if self.initial_due_date:
             self.date_entry.set_date(self.initial_due_date.date())
             self.hour_var.set(f"{self.initial_due_date.hour:02d}")
             self.minute_var.set(f"{self.initial_due_date.minute:02d}")
-        else:
-            now = datetime.datetime.now()
-            self.date_entry.set_date(now.date())
-            self.hour_var.set(f"{now.hour:02d}")
-            self.minute_var.set(f"{now.minute:02d}")
         
-        # Priority
-        ctk.CTkLabel(
-            content, 
+        # Priority section
+        self.priority_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
+        self.priority_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        self.priority_label = ctk.CTkLabel(
+            self.priority_frame,
             text="Priority:",
-            font=ctk.CTkFont(size=16, weight="bold")
-        ).pack(anchor="w", pady=(0, 5))
+            font=ctk.CTkFont(size=14, weight="bold"),
+            anchor="w"
+        )
+        self.priority_label.pack(anchor=tk.W)
         
-        self.priority_var = tk.StringVar(value=self.initial_priority)
-        priority_frame = ctk.CTkFrame(content)
-        priority_frame.pack(fill="x", pady=(0, 15))
+        # Priority radio buttons
+        self.priority_radio_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
+        self.priority_radio_frame.pack(fill=tk.X, pady=(0, 15))
         
+        self.priority_var = tk.StringVar(value=self.initial_priority or "Medium")
+        
+        # Create radio buttons for priorities
         priorities = ["Low", "Medium", "High", "Critical"]
-        for i, p in enumerate(priorities):
-            rb = ctk.CTkRadioButton(
-                priority_frame, 
-                text=p, 
-                variable=self.priority_var, 
-                value=p,
-                font=ctk.CTkFont(size=14)
+        for i, priority in enumerate(priorities):
+            radio = ctk.CTkRadioButton(
+                self.priority_radio_frame,
+                text=priority,
+                variable=self.priority_var,
+                value=priority,
+                font=ctk.CTkFont(size=13)
             )
-            rb.pack(side="left", padx=(0 if i == 0 else 20, 0))
+            radio.pack(side=tk.LEFT, padx=(0 if i == 0 else 20, 0))
         
-        # Category
-        ctk.CTkLabel(
-            content, 
+        # Category section
+        self.category_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
+        self.category_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        self.category_label = ctk.CTkLabel(
+            self.category_frame,
             text="Category:",
-            font=ctk.CTkFont(size=16, weight="bold")
-        ).pack(anchor="w", pady=(0, 5))
+            font=ctk.CTkFont(size=14, weight="bold"),
+            anchor="w"
+        )
+        self.category_label.pack(anchor=tk.W)
         
-        category_frame = ctk.CTkFrame(content)
-        category_frame.pack(fill="x", pady=(0, 15))
+        # Category selector
+        self.category_select_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
+        self.category_select_frame.pack(fill=tk.X, pady=(0, 5))
         
-        # Get categories
+        # Get categories from database
         categories = [c[1] for c in self.task_manager.get_categories()]
-        self.category_var = tk.StringVar(value=self.initial_category if self.initial_category in categories else categories[0])
         
-        self.category_optionmenu = ctk.CTkOptionMenu(
-            category_frame,
+        # Set the default category
+        self.category_var = tk.StringVar(
+            value=self.initial_category if self.initial_category in categories else categories[0]
+        )
+        
+        # Category dropdown
+        self.category_dropdown = ctk.CTkOptionMenu(
+            self.category_select_frame,
             values=categories,
             variable=self.category_var,
-            font=ctk.CTkFont(size=14),
-            dynamic_resizing=False,
+            font=ctk.CTkFont(size=13),
             width=200
         )
-        self.category_optionmenu.pack(side="left")
+        self.category_dropdown.pack(side=tk.LEFT)
         
-        # New category
+        # Custom category checkbox
         self.custom_category_var = tk.BooleanVar(value=False)
         self.custom_category_check = ctk.CTkCheckBox(
-            category_frame,
+            self.category_select_frame,
             text="New Category",
             variable=self.custom_category_var,
-            command=self.toggle_custom_category,
-            font=ctk.CTkFont(size=14)
+            command=self.toggle_custom_category
         )
-        self.custom_category_check.pack(side="left", padx=(20, 0))
+        self.custom_category_check.pack(side=tk.LEFT, padx=(20, 0))
+        
+        # Custom category entry
+        self.custom_category_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
+        self.custom_category_frame.pack(fill=tk.X, pady=(0, 15))
         
         self.custom_category_entry = ctk.CTkEntry(
-            content,
+            self.custom_category_frame,
             placeholder_text="Enter new category name",
-            state="disabled",
-            font=ctk.CTkFont(size=14)
+            font=ctk.CTkFont(size=13),
+            state="disabled"
         )
-        self.custom_category_entry.pack(fill="x", pady=(0, 15))
+        self.custom_category_entry.pack(fill=tk.X)
         
-        # Buttons
-        button_frame = ctk.CTkFrame(content)
-        button_frame.pack(fill="x", pady=(10, 0))
+        # Button frame at the bottom
+        self.button_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
+        self.button_frame.pack(fill=tk.X, pady=(20, 0))
         
         # Cancel button
         self.cancel_button = ctk.CTkButton(
-            button_frame,
+            self.button_frame,
             text="Cancel",
-            command=self.destroy,
             fg_color="#888888",
             hover_color="#666666",
-            font=ctk.CTkFont(size=14),
-            height=40
+            command=self.on_cancel,
+            height=40,
+            font=ctk.CTkFont(size=14)
         )
-        self.cancel_button.pack(side="left", padx=(0, 10), fill="x", expand=True)
+        self.cancel_button.pack(side=tk.LEFT, padx=(0, 10), fill=tk.X, expand=True)
         
         # Save button
         self.save_button = ctk.CTkButton(
-            button_frame,
+            self.button_frame,
             text="Save",
             command=self.on_save,
-            font=ctk.CTkFont(size=14),
-            height=40
+            height=40,
+            font=ctk.CTkFont(size=14)
         )
-        self.save_button.pack(side="left", fill="x", expand=True)
+        self.save_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
     
     def toggle_due_date(self):
-        state = "normal" if self.due_date_checkbox_var.get() else "disabled"
+        # Enable/disable date and time controls based on checkbox
+        state = "normal" if self.due_date_var.get() else "disabled"
         self.date_entry.config(state=state)
-        self.hour_spinbox.configure(state=state)
-        self.minute_spinbox.configure(state=state)
+        self.hour_entry.configure(state=state)
+        self.minute_entry.configure(state=state)
     
     def toggle_custom_category(self):
+        # Enable/disable custom category entry based on checkbox
         if self.custom_category_var.get():
             self.custom_category_entry.configure(state="normal")
-            self.category_optionmenu.configure(state="disabled")
+            self.category_dropdown.configure(state="disabled")
         else:
             self.custom_category_entry.configure(state="disabled")
-            self.category_optionmenu.configure(state="normal")
+            self.category_dropdown.configure(state="normal")
+    
+    def on_cancel(self):
+        # Cancel and close dialog
+        self.result = None
+        self.destroy()
     
     def on_save(self):
-        # Validate title
+        # Validate inputs and save results
         title = self.title_entry.get().strip()
         if not title:
-            self.show_error("Error", "Title is required.")
+            self.show_error("Title Required", "Please enter a title for the task.")
             return
         
         # Get description
-        description = self.description_text.get("0.0", "end").strip()
+        description = self.desc_text.get("0.0", "end").strip()
         
-        # Get due date
+        # Get due date if enabled
         due_date = None
-        if self.due_date_checkbox_var.get():
+        if self.due_date_var.get():
             try:
-                selected_date = self.date_entry.get_date()
+                date_val = self.date_entry.get_date()
                 hour = int(self.hour_var.get())
                 minute = int(self.minute_var.get())
                 
                 # Validate time values
                 if not (0 <= hour <= 23 and 0 <= minute <= 59):
-                    self.show_error("Error", "Invalid time. Hours must be 0-23, minutes 0-59.")
+                    self.show_error("Invalid Time", "Hours must be 0-23 and minutes 0-59.")
                     return
-                    
+                
+                # Create datetime object
                 due_date = datetime.datetime(
-                    year=selected_date.year,
-                    month=selected_date.month,
-                    day=selected_date.day,
+                    year=date_val.year,
+                    month=date_val.month,
+                    day=date_val.day,
                     hour=hour,
                     minute=minute
                 )
             except ValueError:
-                self.show_error("Error", "Invalid time format. Please use numbers for hours (0-23) and minutes (0-59).")
+                self.show_error("Invalid Time", "Please enter valid numbers for hours and minutes.")
                 return
         
         # Get priority
@@ -1154,22 +1239,24 @@ class TaskDialog(ctk.CTkToplevel):
         if self.custom_category_var.get():
             category = self.custom_category_entry.get().strip()
             if not category:
-                self.show_error("Error", "Custom category name is required.")
+                self.show_error("Category Required", "Please enter a category name.")
                 return
         else:
             category = self.category_var.get()
         
-        # Set result and close
+        # Set result tuple and close dialog
         self.result = (title, description, due_date, priority, category)
         self.destroy()
     
     def show_error(self, title, message):
-        ctk.CTkMessagebox(
+        # Display error message
+        error_dialog = ctk.CTkMessagebox(
             master=self,
             title=title,
             message=message,
             icon="cancel"
         )
+
 
 if __name__ == "__main__":
     app = ModernTodoApp()
